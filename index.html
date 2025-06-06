@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Obby per DCO + EAD</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+    .ead {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: sans-serif;
+    }
+    #difficultySelector {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      font-family: sans-serif;
+      z-index: 1;
+    }
+    #difficultySelector button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div id="difficultySelector">
+  <h2>Select Difficulty</h2>
+  <button onclick="startGame('easy')">Easy</button>
+  <button onclick="startGame('medium')">Medium</button>
+  <button onclick="startGame('hard')">Hard</button>
+</div>
+<div class="ead">
+  <strong>Obby Mode:</strong><br/>
+  - Move: A/D<br/>
+  - Jump: W<br/>
+  - Forward: W<br/>
+  - Backward: S
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+  let scene, camera, renderer, player, platforms = [], difficulty;
+  let keys = {}, velocityY = 0, isOnGround = true;
+
+  function startGame(diff) {
+    difficulty = diff;
+    document.getElementById("difficultySelector").style.display = "none";
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 10, 10);
+    scene.add(light);
+
+    const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+
+    // Difficulty settings
+    let platformSize = 5;
+    let platformDistance = 6;
+    let numPlatforms = 10;
+
+    if (difficulty === 'medium') {
+      platformSize = 3.5;
+      platformDistance = 7;
+      numPlatforms = 15;
+    } else if (difficulty === 'hard') {
+      platformSize = 2.5;
+      platformDistance = 8;
+      numPlatforms = 20;
+    }
+
+    platforms = [];
+    for (let i = 0; i < numPlatforms; i++) {
+      const geo = new THREE.BoxGeometry(platformSize, 0.5, platformSize);
+      const mesh = new THREE.Mesh(geo, platformMaterial);
+      mesh.position.set((i % 2 === 0 ? 0 : 3), 0, -i * platformDistance);
+      scene.add(mesh);
+      platforms.push(mesh);
+    }
+
+    const playerGeo = new THREE.BoxGeometry(1, 2, 1);
+    player = new THREE.Mesh(playerGeo, playerMaterial);
+    player.position.set(0, 1, 0);
+    scene.add(player);
+
+    camera.position.set(0, 10, 10);
+    camera.lookAt(player.position);
+
+    document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+    animate();
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    if (!player) return;
+
+    if (keys['a']) player.position.x -= 0.1;
+    if (keys['d']) player.position.x += 0.1;
+
+    if (keys['w'] && isOnGround) {
+      velocityY = 0.2;
+      isOnGround = false;
+    }
+
+    velocityY -= 0.01;
+    player.position.y += velocityY;
+
+    isOnGround = false;
+    for (let plat of platforms) {
+      const size = plat.geometry.parameters.width / 2;
+      if (
+        player.position.y - 1 <= plat.position.y + 0.25 &&
+        player.position.y - 1 >= plat.position.y - 0.25 &&
+        Math.abs(player.position.x - plat.position.x) < size &&
+        Math.abs(player.position.z - plat.position.z) < size
+      ) {
+        player.position.y = plat.position.y + 1;
+        velocityY = 0;
+        isOnGround = true;
+      }
+    }
+
+    if (keys['s']) player.position.z += 0.1;
+    if (keys['w'] && !isOnGround) player.position.z -= 0.1;
+
+    camera.position.x = player.position.x;
+    camera.position.z = player.position.z + 10;
+    camera.lookAt(player.position);
+
+    renderer.render(scene, camera);
+  }
+</script>
+</body>
+</html>
